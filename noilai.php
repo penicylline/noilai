@@ -119,6 +119,7 @@ function filterPhrases($arr) {
     $arr = array_unique($arr);
     $output = array();
     foreach($arr as &$phrase) {
+        $phrase = trim($phrase);
         if (isValidPhrase($phrase)) {
             $output[] = $phrase;
         }
@@ -140,7 +141,8 @@ function laydau($word) {
 
 function extractWords($phrase) {
     $phrase = preg_replace('!\s+!', ' ', trim($phrase));
-    return explode(' ', $phrase);
+    $words = explode(' ', $phrase);
+    return $words;
 }
 
 function genWords($word1, $word2) {
