@@ -12,13 +12,15 @@
 class ChinhTaException extends Exception {
 }
 
-global $nguyenam, $nguyenamdoi, $nguyenamba, $nguyenamdonle;
+global $nguyenam, $nguyenamdoi, $nguyenamba, $nguyenamdonle, $nguyenamtudo;
 $nguyenam = ['a', 'ă', 'â', 'e', 'ê', 'i', 'o', 'ô', 'ơ', 'u', 'ư', 'y'];
 $nguyenamdoi = ['oo', 'iê', 'ươ', 'oe', 'ai', 'au', 'ua', 'ưa', 'ưu', 'âu', 'uâ', 'ia', 'ui', 'ưi', 'iu', 'êu',
                 ' oi', 'ôi', 'ơi', 'ay', 'ây', 'uy', 'uô', 'uâ', 'oa', 'oă', 'ao', 'eo', 'uê'];
 $nguyenamba = ['uya', 'ươi', 'uyê', 'iêu', 'oai', 'oay', 'uây', 'uôi', 'ươu'];
 $nguyenamdonle = ['uya', 'ươi', 'iêu', 'oai', 'uây', 'uôi', 'ươu', 'eo', 'ao', 'ây','ơi', 'ôi', 
                     'oi', 'êu', 'iu', 'ưi', 'ia', 'âu', 'ưu', 'ưa', 'ua', 'au', 'ai', 'ay'];
+
+$nguyenamtudo = ['oa', 'oe', 'uy', 'uê']; // các nguyên âm có hoặc ko có phụ âm đi sau
 
 
 global $listphuam;
@@ -106,7 +108,7 @@ function isValidPhrase($phrase) {
     $words = explode(' ', $phrase);
     foreach ($words as &$word) {
         list($van, $phuamdau, $phuamcuoi) = extractWord($word);
-        if (!isInvalidWord($van, $phuamdau, $phuamcuoi)) {
+        if (isInvalidWord($van, $phuamdau, $phuamcuoi)) {
             return false;
         }
     }
@@ -117,7 +119,7 @@ function filterPhrases($arr) {
     $arr = array_unique($arr);
     $output = array();
     foreach($arr as &$phrase) {
-        if (!isValidPhrase($phrase)) {
+        if (isValidPhrase($phrase)) {
             $output[] = $phrase;
         }
     }
@@ -259,13 +261,13 @@ function isInvalidWord($van, $phuamdau, $phuamcuoi) {
     if ($count > 1) {
         return 'Qúa nhiều dấu trong vần ' . $van;
     }
-    global $nguyenamdonle;
+    global $nguyenamdonle, $nguyenamtudo;
     if (in_array($van, $nguyenamdonle)) {
         if (strlen($phuamcuoi) > 0) {
             return 'Âm ' . $van . $phuamcuoi . ' không tồn tại';
         }
     } else {
-        if ($len > 1 && strlen($phuamcuoi) == 0) {
+        if (($len > 1 && !in_array($van, $nguyenamtudo) )&& strlen($phuamcuoi) == 0) {
             return 'Vần ' . $van . ' không đứng riêng lẻ';
         }
     }
