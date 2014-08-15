@@ -8,10 +8,26 @@
     </head>
     <body>
 <?php
+
+class ChinhTaException extends Exception {
+}
+
+global $nguyenam, $nguyenamdoi, $nguyenamba, $nguyenamdonle;
 $nguyenam = ['a', 'ă', 'â', 'e', 'ê', 'i', 'o', 'ô', 'ơ', 'u', 'ư', 'y'];
+$nguyenamdoi = ['oo', 'iê', 'ươ', 'oe', 'ai', 'au', 'ua', 'ưa', 'ưu', 'âu', 'uâ', 'ia', 'ui', 'ưi', 'iu', 'êu',
+                ' oi', 'ôi', 'ơi', 'ay', 'ây', 'uy', 'uô', 'uâ', 'oa', 'oă', 'ao', 'eo', 'uê'];
+$nguyenamba = ['uya', 'ươi', 'uyê', 'iêu', 'oai', 'oay', 'uây', 'uôi', 'ươu'];
+$nguyenamdonle = ['uya', 'ươi', 'iêu', 'oai', 'uây', 'uôi', 'ươu', 'eo', 'ao', 'ây','ơi', 'ôi', 
+                    'oi', 'êu', 'iu', 'ưi', 'ia', 'âu', 'ưu', 'ưa', 'ua', 'au', 'ai', 'ay'];
+
+
 global $listphuam;
 $listphuam = ['ngh', 'ng', 'nh', 'ch', 'tr', 'ph', 'kh', 'th', 'gh', 'gi', 'qu',
     'b', 'c', 'd', 'đ', 'g', 'h', 'k', 'l', 'm', 'n', 'p', 'r', 's', 't', 'v', 'x'];
+
+global $listphuamcuoi;
+$listphuamcuoi = ['ng', 'nh', 'ch', 'c', 'm', 'n', 'p', 't'];
+
 global $listdau;
 $listdau = [
     'huyen' => ['à','ằ','ầ','è', 'ề', 'ì', 'ò', 'ồ', 'ờ', 'ù', 'ừ', 'ỳ'],
@@ -38,7 +54,7 @@ function doidau($word, $daucu, $daumoi, $pos) {
     global $listdau;
     global $listphuam;
     if ($pos != -1) {
-        //detech được vị trí dấu
+        //detect được vị trí dấu
         $oldChar = $listdau[$daucu][$pos];
         $newChar = $listdau[$daumoi][$pos];
         return str_replace($oldChar, $newChar, $word);
@@ -65,17 +81,47 @@ function doidau($word, $daucu, $daumoi, $pos) {
 
 function extractWord($word) {
     global $listphuam;
-    $nguyenam = $phuamdau = $phuamcuoi = '';
+    global $listphuamcuoi;
+    $van = $phuamdau = $phuamcuoi = '';
     foreach($listphuam as $phuam) {
-        if (empty($phuamdau) && mb_strpos($word, $phuam) === 0) {
+        if (empty($phuamdau) && mb_strpos($word, $phuam, 0, 'UTF-8') === 0) {
             $phuamdau = $phuam;
         }
-        if(empty($phuamcuoi) && substr($word, -strlen($phuam)) === $phuam) {
+        if(empty($phuamcuoi) && substr($word, -mb_strlen($phuam, 'UTF-8')) === $phuam) {
+            if (!in_array($phuam, $listphuamcuoi)) {
+                throw new ChinhTaException($phuam . ' không thể đứng cuối chữ');
+            }
             $phuamcuoi = $phuam;
         }
     }
-    $nguyenam = substr($word, strlen($phuamdau), strlen($word) - strlen($phuamdau) - strlen($phuamcuoi));
-    return array($nguyenam, $phuamdau, $phuamcuoi);
+    $wordLen = strlen($word);
+    if ($wordLen - strlen($phuamdau) - strlen($phuamcuoi) <= 0) {
+        throw new ChinhTaException('Không có vần trong chữ ' . $word);
+    }
+    $van = substr($word, strlen($phuamdau), $wordLen - mb_strlen($phuamdau) - mb_strlen($phuamcuoi));
+    return array($van, $phuamdau, $phuamcuoi);
+}
+
+function isValidPhrase($phrase) {
+    $words = explode(' ', $phrase);
+    foreach ($words as &$word) {
+        list($van, $phuamdau, $phuamcuoi) = extractWord($word);
+        if (!isInvalidWord($van, $phuamdau, $phuamcuoi)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function filterPhrases($arr) {
+    $arr = array_unique($arr);
+    $output = array();
+    foreach($arr as &$phrase) {
+        if (!isValidPhrase($phrase)) {
+            $output[] = $phrase;
+        }
+    }
+    return $output;
 }
 
 function laydau($word) {
@@ -98,7 +144,14 @@ function extractWords($phrase) {
 function genWords($word1, $word2) {
     list($van1, $phuamdau1, $phuamcuoi1) = extractWord($word1);
     list($van2, $phuamdau2, $phuamcuoi2) = extractWord($word2);
-    
+    $err = isInvalidWord($van1, $phuamdau1, $phuamcuoi1);
+    if (!empty($err)) {
+        throw new ChinhTaException($err);
+    }
+    $err = isInvalidWord($van2, $phuamdau2, $phuamcuoi2);
+    if (!empty($err)) {
+        throw new ChinhTaException($err);
+    }
     for ($i = 1; $i <= 2; $i++) {
         for ($j = 1; $j <= 2; $j++) {
             for ($k = 1; $k <= 2; $k++) {
@@ -118,26 +171,26 @@ function genWords($word1, $word2) {
     return $output;
 }
 
-function gen2Words($word1, $word2, $unique = true) {
+function gen2Words($word1, $word2, $filter = true) {
     $lst = genWords($word1, $word2);
     $output = array();
     foreach($lst as $words) {
         $output[] = implode(' ', $words);
     }
-    if ($unique) {
-        return array_unique($output);
+    if ($filter) {
+        return filterPhrases($output);
     }
     return $output;
 }
 
-function gen3Words($word1, $word2, $word3, $unique = true) {
+function gen3Words($word1, $word2, $word3, $filter = true) {
     $lst = genWords($word1, $word3);
     $output = array();
     foreach($lst as $words) {
         $output[] = $words[0] . ' ' . $word2 . ' ' . $words[1];
     }
-    if ($unique) {
-        return array_unique($output);
+    if ($filter) {
+        return filterPhrases($output);
     }
     return $output;
 }
@@ -167,20 +220,73 @@ function genNWords($arr) {
         }
         $output[] = $phrase;
     }
-    return $output;
+    return filterPhrases($output);
+}
+ 
+function isInvalidWord($van, $phuamdau, $phuamcuoi) {
+    $len = mb_strlen($van, 'UTF-8');
+    if ($len > 3) {
+        return 'Vần không hợp lệ';
+    }
+    global $listdau;
+    global $nguyenam;
+    $count = 0;
+    for ($i = 0; $i < $len; $i++) {
+        $wordChar = mb_substr($van, $i, 1, 'UTF-8');
+        foreach($listdau as $thanh => &$dau) {
+            foreach($dau as $pos => &$char) {
+                if($char == $wordChar) {
+                    if ($thanh == 'ngang') {
+                        continue;
+                    }
+                    $count++;
+                    $before = $i == 0 ? '' : mb_substr($van, 0, $i, 'UTF-8');
+                    $after = $i == $len - 1 ? '' : mb_substr($van, $i + 1, $len - $i - 1, 'UTF-8');
+                    $van = $before . $nguyenam[$pos] . $after;
+                    break;
+                }
+            }
+        }
+    }
+    if($len > 1) {
+        global $nguyenamba, $nguyenamdoi;
+        if (!in_array($van, $nguyenamba)) {
+            if (!in_array($van, $nguyenamdoi)){
+                return 'Vần ' . $van . ' không tồn tại';
+            }
+        }
+    }
+    if ($count > 1) {
+        return 'Qúa nhiều dấu trong vần ' . $van;
+    }
+    global $nguyenamdonle;
+    if (in_array($van, $nguyenamdonle)) {
+        if (strlen($phuamcuoi) > 0) {
+            return 'Âm ' . $van . $phuamcuoi . ' không tồn tại';
+        }
+    } else {
+        if ($len > 1 && strlen($phuamcuoi) == 0) {
+            return 'Vần ' . $van . ' không đứng riêng lẻ';
+        }
+    }
+    return null;
 }
 
 $phrase = filter_input(INPUT_GET, 'q');
 if (!empty($phrase)) {
-    $words = extractWords(mb_strtolower($phrase, 'UTF-8'));
-    if (count($words) == 2) {
-        $newWords = gen2Words($words[0], $words[1]);
-    }
-    if (count($words) == 3) {
-        $newWords = gen3Words($words[0], $words[1], $words[2]);
-    }
-    if (count($words) > 3) {
-        $newWords = genNWords($words);
+    try {
+        $words = extractWords(mb_strtolower($phrase, 'UTF-8'));
+        if (count($words) == 2) {
+            $newWords = gen2Words($words[0], $words[1]);
+        }
+        if (count($words) == 3) {
+            $newWords = gen3Words($words[0], $words[1], $words[2]);
+        }
+        if (count($words) > 3) {
+            $newWords = genNWords($words);
+        }
+    } catch(ChinhTaException $ex) {
+        $error = $ex->getMessage();
     }
         
 }
@@ -203,9 +309,13 @@ if (!empty($phrase)) {
                         <?php echo $words, '<br/>' ?>
                     <?php endforeach; ?>
                 <?php else: ?>
-                    <?php if (!empty($phrase)): ?>
-                        <h4>Á đù, khó quá!</h4>
-                    <?php endif; ?>
+                    <?php if(isset($error)): ?>
+                        <h4 class="text-danger"><?php echo $error ?></h4>
+                    <?php else: ?>
+                        <?php if (!empty($phrase)): ?>
+                            <h4>Á đù, khó quá!</h4>
+                        <?php endif; ?>
+                    <?php endif;?>
                 <?php endif; ?>
             </div>
             
