@@ -13,6 +13,13 @@ define('DAU_HOI', 3);
 define('DAU_NGA', 4);
 define('DAU_NANG', 5);
 
+//define('DAU_NGANG', 'ngang');
+//define('DAU_HUYEN', 'huyen');
+//define('DAU_SAC', 'sac');
+//define('DAU_HOI', 'hoi');
+//define('DAU_NGA', 'nga');
+//define('DAU_NANG', 'nang');
+
 function __autoload($className) {
     $file = strtolower($className);
     if (file_exists(__DIR__ . '/core/' . $file . '.php')) {
