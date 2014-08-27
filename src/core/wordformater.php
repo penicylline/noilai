@@ -17,7 +17,7 @@ class WordFormater extends BaseFormater{
         $vanCodau = $van;
         $vanLen = mb_strlen($van, 'UTF-8');
         
-        if (in_array($phuamcuoi, WordsManager::$phuamtrac) && ($dau != DAU_SAC || $dau != DAU_NANG)) {
+        if (in_array($phuamcuoi, WordsManager::$phuamtrac) && $dau != DAU_SAC && $dau != DAU_NANG) {
             $dau = DAU_SAC;
         }
         if ($vanLen == 1) {
@@ -36,7 +36,7 @@ class WordFormater extends BaseFormater{
         }
         if ($vanLen == 3) {
             $posDau = strlen($phuamcuoi) == 0 ? 1 : 2;
-            $nguyenAmCoDau = $this->getMbCharAt($van. $posDau);
+            $nguyenAmCoDau = $this->getMbCharAt($van, $posDau);
             $vanPos = array_search($nguyenAmCoDau, WordsManager::$nguyenam);
             if ($posDau == 1) {
                 $vanCodau = $this->getMbCharAt($van, 0) . WordsManager::$listdau[$dau][$vanPos] . $this->getMbCharAt($van, 2);
